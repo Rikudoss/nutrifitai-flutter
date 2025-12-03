@@ -1,17 +1,36 @@
 import 'package:flutter/material.dart';
-import 'package:nutrifit_ai_app/screens/home/profile_screen.dart';
-import 'theme/app_theme.dart';
+import 'package:provider/provider.dart';
 
-import 'screens/splash/splash_screen.dart';
+import 'core/token_storage.dart';
+import 'providers/auth_provider.dart';
+import 'providers/nutrition_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home/home_screen.dart';
-import 'screens/home/nutrition_screen.dart';
-import 'screens/home/workouts_screen.dart';
-import 'screens/home/metrics_screen.dart';
-import 'screens/home/ai_screen.dart';
+import 'screens/nutrition/nutrition_form_screen.dart';
+import 'services/ai_service.dart';
+import 'services/api_client.dart';
+import 'services/auth_service.dart';
 
 void main() {
-  runApp(const NutriFitApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final tokenStorage = TokenStorage();
+  final apiClient = ApiClient(tokenStorage);
+  final authService = AuthService(apiClient);
+  final aiService = AiService(apiClient);
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(authService, tokenStorage)..loadToken(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => NutritionProvider(aiService, context.read<AuthProvider>()),
+        ),
+      ],
+      child: const NutriFitApp(),
+    ),
+  );
 }
 
 class NutriFitApp extends StatelessWidget {
@@ -21,17 +40,42 @@ class NutriFitApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      initialRoute: "/splash",
+      title: 'NutriFit AI',
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        scaffoldBackgroundColor: Colors.grey[50],
+        appBarTheme: const AppBarTheme(centerTitle: true),
+        inputDecorationTheme: const InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+        ),
+      ),
+      home: const _Bootstrapper(),
       routes: {
-        "/splash": (_) => const SplashScreen(),
-        "/login": (_) => const LoginScreen(),
-        "/home": (_) => const HomeScreen(),
-        "/profile": (_) => const ProfileScreen(),
-        "/nutrition": (_) => const NutritionScreen(),
-        "/workouts": (_) => const WorkoutsScreen(),
-        "/metrics": (_) => const MetricsScreen(),
-        "/ai": (_) => const AiScreen(),
+        '/login': (_) => const LoginScreen(),
+        '/form': (_) => const NutritionFormScreen(),
+      },
+    );
+  }
+}
+
+/// Decides whether to show auth screens or the form based on token presence.
+class _Bootstrapper extends StatelessWidget {
+  const _Bootstrapper();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, auth, _) {
+        if (!auth.isInitialized) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (auth.isAuthenticated) {
+          return const NutritionFormScreen();
+        }
+        return const LoginScreen();
       },
     );
   }
