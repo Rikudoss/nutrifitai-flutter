@@ -1,25 +1,30 @@
-import '../services/storage_service.dart';
+import 'package:dio/dio.dart';
 
+import '../models/auth_request.dart';
+import '../models/auth_response.dart';
+import 'api_client.dart';
+
+/// Handles authentication calls to the backend.
 class AuthService {
+  final ApiClient apiClient;
 
-  // ВРЕМЕННЫЙ ЛОГИН (пока нет backend)
-  Future<bool> login(String email, String password) async {
-    // фейковая задержка, как будто запрос
-    await Future.delayed(const Duration(milliseconds: 400));
+  AuthService(this.apiClient);
 
-    // сохраняем фейковый токен
-    await StorageService.saveToken("fake-test-token");
-
-    return true;
+  /// Register a new user and return the issued token.
+  Future<AuthenticationResponse> register(RegisterRequest request) async {
+    final response = await apiClient.client.post(
+      '/api/auth/register',
+      data: request.toJson(), // Body sent to the backend
+    );
+    return AuthenticationResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
-  // ВРЕМЕННАЯ РЕГИСТРАЦИЯ
-  Future<bool> register(Map<String, dynamic> data) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    return true;
-  }
-
-  Future<void> logout() async {
-    await StorageService.clearToken();
+  /// Log in an existing user and retrieve the token.
+  Future<AuthenticationResponse> login(LoginRequest request) async {
+    final response = await apiClient.client.post(
+      '/api/auth/login',
+      data: request.toJson(), // Body sent to the backend
+    );
+    return AuthenticationResponse.fromJson(response.data as Map<String, dynamic>);
   }
 }
